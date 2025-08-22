@@ -1,5 +1,5 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const sqlite3 = require("sqlite3").verbose();
+const path = require("path");
 
 class Database {
   constructor() {
@@ -8,14 +8,15 @@ class Database {
 
   async connect() {
     return new Promise((resolve, reject) => {
-      const dbPath = process.env.DB_PATH || path.join(__dirname, '../../database.sqlite');
-      
+      const dbPath =
+        process.env.DB_PATH || path.join(__dirname, "../../database.sqlite");
+
       this.db = new sqlite3.Database(dbPath, (err) => {
         if (err) {
-          console.error('❌ Database connection error:', err);
+          console.error("❌ Database connection error:", err);
           reject(err);
         } else {
-          console.log('✅ Connected to SQLite database');
+          console.log("✅ Connected to SQLite database");
           this.initTables().then(resolve).catch(reject);
         }
       });
@@ -37,7 +38,7 @@ class Database {
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`,
-        
+
         // Conversations table
         `CREATE TABLE IF NOT EXISTS conversations (
           id TEXT PRIMARY KEY,
@@ -47,7 +48,7 @@ class Database {
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`,
-        
+
         // Conversation participants table
         `CREATE TABLE IF NOT EXISTS conversation_participants (
           conversation_id TEXT,
@@ -57,7 +58,7 @@ class Database {
           FOREIGN KEY (conversation_id) REFERENCES conversations(id),
           FOREIGN KEY (user_id) REFERENCES users(id)
         )`,
-        
+
         // Messages table
         `CREATE TABLE IF NOT EXISTS messages (
           id TEXT PRIMARY KEY,
@@ -73,7 +74,7 @@ class Database {
           FOREIGN KEY (sender_id) REFERENCES users(id),
           FOREIGN KEY (reply_to) REFERENCES messages(id)
         )`,
-        
+
         // Message read status
         `CREATE TABLE IF NOT EXISTS message_reads (
           message_id TEXT,
@@ -82,7 +83,7 @@ class Database {
           PRIMARY KEY (message_id, user_id),
           FOREIGN KEY (message_id) REFERENCES messages(id),
           FOREIGN KEY (user_id) REFERENCES users(id)
-        )`
+        )`,
       ];
 
       let completed = 0;
@@ -93,10 +94,10 @@ class Database {
             reject(err);
             return;
           }
-          
+
           completed++;
           if (completed === queries.length) {
-            console.log('✅ Database tables initialized');
+            console.log("✅ Database tables initialized");
             resolve();
           }
         });
@@ -109,9 +110,9 @@ class Database {
       if (this.db) {
         this.db.close((err) => {
           if (err) {
-            console.error('❌ Error closing database:', err);
+            console.error("❌ Error closing database:", err);
           } else {
-            console.log('✅ Database connection closed');
+            console.log("✅ Database connection closed");
           }
           resolve();
         });

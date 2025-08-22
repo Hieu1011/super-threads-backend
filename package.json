@@ -1,11 +1,17 @@
 {
-  "name": "super-threads-websocket-server",
-  "version": "1.0.0",
-  "description": "WebSocket server for testing Super Threads chat functionality",
+  "name": "super-threads-backend",
+  "version": "2.0.0",
+  "description": "Full backend API with authentication and real-time chat for Super Threads",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "db:view": "node scripts/db-viewer.js",
+    "db:users": "node scripts/db-viewer.js users",
+    "db:messages": "node scripts/db-viewer.js messages",
+    "db:conversations": "node scripts/db-viewer.js conversations",
+    "db:schema": "sqlite3 database.sqlite '.schema'",
+    "db:reset": "rm -f database.sqlite"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

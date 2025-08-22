@@ -1,14 +1,14 @@
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
+const express = require("express");
+const cors = require("cors");
+const helmet = require("helmet");
 const WebSocket = require("ws");
 const { v4: uuidv4 } = require("uuid");
-const database = require('./src/config/database');
-const authRoutes = require('./src/routes/auth');
-const { authenticateWebSocket } = require('./src/middleware/auth');
+const database = require("./src/config/database");
+const authRoutes = require("./src/routes/auth");
+const { authenticateWebSocket } = require("./src/middleware/auth");
 
 // Load environment variables
-require('dotenv').config();
+require("dotenv").config();
 
 const PORT = process.env.PORT || 8080;
 
@@ -16,40 +16,44 @@ const PORT = process.env.PORT || 8080;
 const app = express();
 
 // Security middleware
-app.use(helmet({
-  contentSecurityPolicy: false, // Disable for WebSocket
-}));
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Disable for WebSocket
+  })
+);
 
 // CORS configuration
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3000', 'http://localhost:19006'];
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",")
+  : ["http://localhost:3000", "http://localhost:19006"];
 
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  })
+);
 
 // Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-app.use('/api/auth', authRoutes);
+app.use("/api/auth", authRoutes);
 
 // Health check endpoint
-app.get(['/health', '/'], (req, res) => {
+app.get(["/health", "/"], (req, res) => {
   res.json({
     status: "healthy",
     clients: clients.size,
     rooms: rooms.size,
     timestamp: new Date().toISOString(),
-    version: "2.0.0"
+    version: "2.0.0",
   });
 });
 
 // Create HTTP server
-const server = require('http').createServer(app);
+const server = require("http").createServer(app);
 
 // Tạo WebSocket server attached to HTTP server
 const wss = new WebSocket.Server({ server });
@@ -62,14 +66,14 @@ const rooms = new Map();
 async function startServer() {
   try {
     await database.connect();
-    
+
     server.listen(PORT, () => {
       console.log(`🌐 HTTP server listening on port ${PORT}`);
       console.log(`🚀 WebSocket server started on port ${PORT}`);
       console.log(`📊 API endpoints available at /api/*`);
     });
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
+    console.error("❌ Failed to start server:", error);
     process.exit(1);
   }
 }
@@ -131,7 +135,7 @@ wss.on("connection", (ws, req) => {
           try {
             const { token } = message.data;
             const user = await authenticateWebSocket(token);
-            
+
             // Lưu authenticated user info
             clients.set(clientId, {
               ws,
@@ -140,28 +144,34 @@ wss.on("connection", (ws, req) => {
               avatar: user.avatar,
               email: user.email,
               verified: user.verified,
-              isAuthenticated: true
+              isAuthenticated: true,
             });
 
-            ws.send(JSON.stringify({
-              type: "auth_success",
-              data: {
-                user: {
-                  id: user.userId,
-                  name: user.displayName,
-                  avatar: user.avatar,
-                  email: user.email,
-                  verified: user.verified
-                }
-              }
-            }));
+            ws.send(
+              JSON.stringify({
+                type: "auth_success",
+                data: {
+                  user: {
+                    id: user.userId,
+                    name: user.displayName,
+                    avatar: user.avatar,
+                    email: user.email,
+                    verified: user.verified,
+                  },
+                },
+              })
+            );
 
-            console.log(`🔐 User authenticated: ${user.displayName} (${user.email})`);
+            console.log(
+              `🔐 User authenticated: ${user.displayName} (${user.email})`
+            );
           } catch (error) {
-            ws.send(JSON.stringify({
-              type: "auth_error",
-              data: { message: error.message }
-            }));
+            ws.send(
+              JSON.stringify({
+                type: "auth_error",
+                data: { message: error.message },
+              })
+            );
             console.log(`❌ Authentication failed: ${error.message}`);
           }
           break;
@@ -169,10 +179,12 @@ wss.on("connection", (ws, req) => {
         case "join":
           // User join room (cần authenticate trước)
           if (!client || !client.isAuthenticated) {
-            ws.send(JSON.stringify({
-              type: "error",
-              data: { message: "Please authenticate first" }
-            }));
+            ws.send(
+              JSON.stringify({
+                type: "error",
+                data: { message: "Please authenticate first" },
+              })
+            );
             return;
           }
 
@@ -181,7 +193,7 @@ wss.on("connection", (ws, req) => {
           // Update client với room info
           clients.set(clientId, {
             ...client,
-            roomId
+            roomId,
           });
 
           // Thêm vào room
@@ -196,11 +208,11 @@ wss.on("connection", (ws, req) => {
             {
               type: "user_joined",
               data: {
-                user: { 
-                  id: client.userId, 
-                  name: client.userName, 
+                user: {
+                  id: client.userId,
+                  name: client.userName,
                   avatar: client.avatar,
-                  verified: client.verified
+                  verified: client.verified,
                 },
                 timestamp: new Date().toISOString(),
               },
