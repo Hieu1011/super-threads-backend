@@ -39,17 +39,12 @@ router.post("/register", async (req, res) => {
     }
 
     // Check if user already exists
-    const db = database.getDb();
-    const existingUser = await new Promise((resolve, reject) => {
-      db.get(
-        "SELECT id FROM users WHERE email = ? OR username = ?",
-        [email, username],
-        (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
-        }
-      );
-    });
+    const existingUserResult = await database.query(
+      "SELECT id FROM users WHERE email = $1 OR username = $2",
+      [email, username]
+    );
+    
+    const existingUser = existingUserResult.rows ? existingUserResult.rows[0] : existingUserResult[0];
 
     if (existingUser) {
       return res.status(409).json({
@@ -66,17 +61,11 @@ router.post("/register", async (req, res) => {
     const userId = uuidv4();
     const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=007AFF&color=fff&size=200`;
 
-    await new Promise((resolve, reject) => {
-      db.run(
-        `INSERT INTO users (id, email, username, display_name, password_hash, avatar)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [userId, email, username, displayName, passwordHash, avatar],
-        function (err) {
-          if (err) reject(err);
-          else resolve(this);
-        }
-      );
-    });
+    await database.run(
+      `INSERT INTO users (id, email, username, display_name, password_hash, avatar)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [userId, email, username, displayName, passwordHash, avatar]
+    );
 
     // Generate token
     const user = {
@@ -121,13 +110,12 @@ router.post("/login", async (req, res) => {
     }
 
     // Find user
-    const db = database.getDb();
-    const user = await new Promise((resolve, reject) => {
-      db.get("SELECT * FROM users WHERE email = ?", [email], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
+    const userResult = await database.query(
+      "SELECT * FROM users WHERE email = $1", 
+      [email]
+    );
+    
+    const user = userResult.rows ? userResult.rows[0] : userResult[0];
 
     if (!user) {
       return res.status(401).json({
@@ -179,18 +167,13 @@ router.get(
   "/me",
   require("../middleware/auth").authenticateToken,
   async (req, res) => {
-    try {
-      const db = database.getDb();
-      const user = await new Promise((resolve, reject) => {
-        db.get(
-          "SELECT id, email, username, display_name, avatar, verified, created_at FROM users WHERE id = ?",
-          [req.user.userId],
-          (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-          }
-        );
-      });
+      try {
+    const userResult = await database.query(
+      "SELECT id, email, username, display_name, avatar, verified, created_at FROM users WHERE id = $1",
+      [req.user.userId]
+    );
+    
+    const user = userResult.rows ? userResult.rows[0] : userResult[0];
 
       if (!user) {
         return res.status(404).json({
