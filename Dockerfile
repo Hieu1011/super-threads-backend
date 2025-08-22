@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json yarn.lock ./
 
-# Install dependencies
-RUN yarn install --frozen-lockfile
+# Install dependencies (không dùng --frozen-lockfile vì có thể conflict)
+RUN yarn install --production
 
 # Copy source code
 COPY . .
