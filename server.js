@@ -52,6 +52,34 @@ app.get(["/health", "/"], (req, res) => {
   });
 });
 
+// Debug endpoint
+app.get("/debug", async (req, res) => {
+  try {
+    const db = database.getDb();
+    const hasPostgres = !!(process.env.DATABASE_URL || process.env.POSTGRES_URL);
+    
+    let dbTest = null;
+    if (hasPostgres) {
+      const result = await database.query("SELECT NOW() as current_time");
+      dbTest = result.rows ? result.rows[0] : result[0];
+    }
+
+    res.json({
+      environment: process.env.NODE_ENV || 'development',
+      hasDatabase: !!db,
+      hasPostgresUrl: hasPostgres,
+      databaseType: hasPostgres ? 'PostgreSQL' : 'SQLite',
+      dbTest,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 // Create HTTP server
 const server = require("http").createServer(app);
 

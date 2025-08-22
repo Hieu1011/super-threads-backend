@@ -47,7 +47,7 @@ const authenticateWebSocket = async (token) => {
       "SELECT id, email, username, display_name, avatar, verified FROM users WHERE id = $1",
       [decoded.userId]
     );
-    
+
     const user = result.rows ? result.rows[0] : result[0];
 
     if (!user) {
