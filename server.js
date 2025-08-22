@@ -1,40 +1,80 @@
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
 const WebSocket = require("ws");
 const { v4: uuidv4 } = require("uuid");
+const database = require('./src/config/database');
+const authRoutes = require('./src/routes/auth');
+const { authenticateWebSocket } = require('./src/middleware/auth');
+
+// Load environment variables
+require('dotenv').config();
 
 const PORT = process.env.PORT || 8080;
 
-// Health check endpoint cho deployment platforms
-const http = require("http");
-const server = http.createServer((req, res) => {
-  if (req.url === "/health" || req.url === "/") {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(
-      JSON.stringify({
-        status: "healthy",
-        clients: clients.size,
-        rooms: rooms.size,
-        timestamp: new Date().toISOString(),
-      })
-    );
-  } else {
-    res.writeHead(404);
-    res.end("Not Found");
-  }
+// Create Express app
+const app = express();
+
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable for WebSocket
+}));
+
+// CORS configuration
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:3000', 'http://localhost:19006'];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
+
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Routes
+app.use('/api/auth', authRoutes);
+
+// Health check endpoint
+app.get(['/health', '/'], (req, res) => {
+  res.json({
+    status: "healthy",
+    clients: clients.size,
+    rooms: rooms.size,
+    timestamp: new Date().toISOString(),
+    version: "2.0.0"
+  });
 });
+
+// Create HTTP server
+const server = require('http').createServer(app);
 
 // Tạo WebSocket server attached to HTTP server
 const wss = new WebSocket.Server({ server });
-
-// Start HTTP server
-server.listen(PORT, () => {
-  console.log(`🌐 HTTP server listening on port ${PORT}`);
-});
 
 // Lưu trữ các kết nối và thông tin user
 const clients = new Map();
 const rooms = new Map();
 
-console.log(`🚀 WebSocket server started on port ${PORT}`);
+// Initialize database and start server
+async function startServer() {
+  try {
+    await database.connect();
+    
+    server.listen(PORT, () => {
+      console.log(`🌐 HTTP server listening on port ${PORT}`);
+      console.log(`🚀 WebSocket server started on port ${PORT}`);
+      console.log(`📊 API endpoints available at /api/*`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();
 
 // Hàm broadcast message đến tất cả client trong room
 function broadcastToRoom(roomId, message, excludeClient = null) {
@@ -75,27 +115,73 @@ function sendRoomUsers(roomId) {
   broadcastToRoom(roomId, message);
 }
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req) => {
   const clientId = uuidv4();
 
   console.log(`➕ Client connected: ${clientId}`);
 
-  ws.on("message", (data) => {
+  ws.on("message", async (data) => {
     try {
       const message = JSON.parse(data.toString());
       const client = clients.get(clientId);
 
       switch (message.type) {
-        case "join":
-          // User join với thông tin
-          const { userId, userName, avatar, roomId } = message.data;
+        case "auth":
+          // Authenticate với JWT token
+          try {
+            const { token } = message.data;
+            const user = await authenticateWebSocket(token);
+            
+            // Lưu authenticated user info
+            clients.set(clientId, {
+              ws,
+              userId: user.userId,
+              userName: user.displayName,
+              avatar: user.avatar,
+              email: user.email,
+              verified: user.verified,
+              isAuthenticated: true
+            });
 
+            ws.send(JSON.stringify({
+              type: "auth_success",
+              data: {
+                user: {
+                  id: user.userId,
+                  name: user.displayName,
+                  avatar: user.avatar,
+                  email: user.email,
+                  verified: user.verified
+                }
+              }
+            }));
+
+            console.log(`🔐 User authenticated: ${user.displayName} (${user.email})`);
+          } catch (error) {
+            ws.send(JSON.stringify({
+              type: "auth_error",
+              data: { message: error.message }
+            }));
+            console.log(`❌ Authentication failed: ${error.message}`);
+          }
+          break;
+
+        case "join":
+          // User join room (cần authenticate trước)
+          if (!client || !client.isAuthenticated) {
+            ws.send(JSON.stringify({
+              type: "error",
+              data: { message: "Please authenticate first" }
+            }));
+            return;
+          }
+
+          const { roomId } = message.data;
+
+          // Update client với room info
           clients.set(clientId, {
-            ws,
-            userId,
-            userName,
-            avatar,
-            roomId,
+            ...client,
+            roomId
           });
 
           // Thêm vào room
@@ -110,7 +196,12 @@ wss.on("connection", (ws) => {
             {
               type: "user_joined",
               data: {
-                user: { id: userId, name: userName, avatar },
+                user: { 
+                  id: client.userId, 
+                  name: client.userName, 
+                  avatar: client.avatar,
+                  verified: client.verified
+                },
                 timestamp: new Date().toISOString(),
               },
             },
@@ -131,16 +222,26 @@ wss.on("connection", (ws) => {
             })
           );
 
-          console.log(`👤 User ${userName} joined room ${roomId}`);
+          console.log(`👤 User ${client.userName} joined room ${roomId}`);
           break;
 
         case "message":
-          // Gửi tin nhắn
-          if (!client) {
+          // Gửi tin nhắn (cần authenticate và join room)
+          if (!client || !client.isAuthenticated) {
             ws.send(
               JSON.stringify({
                 type: "error",
-                message: "Please join a room first",
+                data: { message: "Please authenticate first" },
+              })
+            );
+            return;
+          }
+
+          if (!client.roomId) {
+            ws.send(
+              JSON.stringify({
+                type: "error",
+                data: { message: "Please join a room first" },
               })
             );
             return;
@@ -155,6 +256,7 @@ wss.on("connection", (ws) => {
                 id: client.userId,
                 name: client.userName,
                 avatar: client.avatar,
+                verified: client.verified,
               },
               timestamp: new Date().toISOString(),
               roomId: client.roomId,
