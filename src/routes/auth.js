@@ -43,8 +43,10 @@ router.post("/register", async (req, res) => {
       "SELECT id FROM users WHERE email = $1 OR username = $2",
       [email, username]
     );
-    
-    const existingUser = existingUserResult.rows ? existingUserResult.rows[0] : existingUserResult[0];
+
+    const existingUser = existingUserResult.rows
+      ? existingUserResult.rows[0]
+      : existingUserResult[0];
 
     if (existingUser) {
       return res.status(409).json({
@@ -111,10 +113,10 @@ router.post("/login", async (req, res) => {
 
     // Find user
     const userResult = await database.query(
-      "SELECT * FROM users WHERE email = $1", 
+      "SELECT * FROM users WHERE email = $1",
       [email]
     );
-    
+
     const user = userResult.rows ? userResult.rows[0] : userResult[0];
 
     if (!user) {
@@ -167,13 +169,13 @@ router.get(
   "/me",
   require("../middleware/auth").authenticateToken,
   async (req, res) => {
-      try {
-    const userResult = await database.query(
-      "SELECT id, email, username, display_name, avatar, verified, created_at FROM users WHERE id = $1",
-      [req.user.userId]
-    );
-    
-    const user = userResult.rows ? userResult.rows[0] : userResult[0];
+    try {
+      const userResult = await database.query(
+        "SELECT id, email, username, display_name, avatar, verified, created_at FROM users WHERE id = $1",
+        [req.user.userId]
+      );
+
+      const user = userResult.rows ? userResult.rows[0] : userResult[0];
 
       if (!user) {
         return res.status(404).json({

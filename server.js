@@ -71,6 +71,8 @@ app.get("/debug", async (req, res) => {
       hasDatabase: !!db,
       hasPostgresUrl: hasPostgres,
       databaseType: hasPostgres ? "PostgreSQL" : "SQLite",
+      hasJwtSecret: !!process.env.JWT_SECRET,
+      jwtSecretPreview: process.env.JWT_SECRET ? process.env.JWT_SECRET.slice(0, 10) + '...' : 'none',
       dbTest,
       timestamp: new Date().toISOString(),
     });
