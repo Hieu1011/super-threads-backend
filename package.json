@@ -1,0 +1,25 @@
+{
+  "name": "super-threads-websocket-server",
+  "version": "1.0.0",
+  "description": "WebSocket server for testing Super Threads chat functionality",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "uuid": "^9.0.1",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "websocket",
+    "chat",
+    "react-native",
+    "super-threads"
+  ],
+  "author": "",
+  "license": "MIT"
+}
