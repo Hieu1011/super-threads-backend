@@ -1,7 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const { v4: uuidv4 } = require("uuid");
-const database = require("../config/database");
+const database = require("../config/database-factory");
 const {
   generateToken,
   validatePassword,

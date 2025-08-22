@@ -3,7 +3,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const WebSocket = require("ws");
 const { v4: uuidv4 } = require("uuid");
-const database = require("./src/config/database");
+const database = require("./src/config/database-factory");
 const authRoutes = require("./src/routes/auth");
 const { authenticateWebSocket } = require("./src/middleware/auth");
 

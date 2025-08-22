@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const database = require("../config/database");
+const database = require("../config/database-factory");
 
 // JWT Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -43,17 +43,12 @@ const authenticateWebSocket = async (token) => {
     );
 
     // Verify user exists in database
-    const db = database.getDb();
-    const user = await new Promise((resolve, reject) => {
-      db.get(
-        "SELECT id, email, username, display_name, avatar, verified FROM users WHERE id = ?",
-        [decoded.userId],
-        (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
-        }
-      );
-    });
+    const result = await database.query(
+      "SELECT id, email, username, display_name, avatar, verified FROM users WHERE id = $1",
+      [decoded.userId]
+    );
+    
+    const user = result.rows ? result.rows[0] : result[0];
 
     if (!user) {
       throw new Error("User not found");
